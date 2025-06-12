@@ -351,35 +351,6 @@
             try {
                 const formData = new FormData();
                 formData.append('file', selectedFile);
-
-                const response = await fetch(`${API_URL}/predict`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                
-                if (response.ok) {
-                    displayResults(result, false);
-                } else {
-                    showError(result.detail || 'Analysis failed');
-                }
-            } catch (error) {
-                showError('Network error: ' + error.message);
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        async function analyzeWithFeatures() {
-            if (!selectedFile) return;
-
-            showLoading(true);
-            hideResults();
-
-            try {
-                const formData = new FormData();
-                formData.append('file', selectedFile);
                 formData.append('return_features', 'true');
 
                 const response = await fetch(`${API_URL}/predict`, {
@@ -390,7 +361,7 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    displayResults(result, true);
+                    displayResults(result);
                 } else {
                     showError(result.detail || 'Analysis failed');
                 }
@@ -401,7 +372,7 @@
             }
         }
 
-        function displayResults(result, includeFeatures) {
+        function displayResults(result) {
             const prediction = result.prediction;
             const isAI = prediction.predicted_class === 'ai_damages';
             
@@ -426,35 +397,6 @@
                 </div>
             `;
 
-            if (includeFeatures && result.features) {
-                html += `
-                    <div class="result-card">
-                        <h4>🔬 Forensic Features Analysis</h4>
-                        <p style="margin-bottom: 20px; color: #666;">
-                            These visualizations show different forensic analysis techniques used to detect image manipulation.
-                        </p>
-                        <div class="features-grid">
-                `;
-
-                result.features.forEach(feature => {
-                    html += `
-                        <div class="feature-card">
-                            <img src="data:image/png;base64,${feature.data}" 
-                                 alt="${feature.name}" class="feature-image">
-                            <h5>${feature.name}</h5>
-                            <p style="font-size: 0.9rem; color: #666;">
-                                ${getFeatureDescription(feature.name)}
-                            </p>
-                        </div>
-                    `;
-                });
-
-                html += `
-                        </div>
-                    </div>
-                `;
-            }
-
             document.getElementById('resultsContent').innerHTML = html;
             document.getElementById('resultsSection').style.display = 'block';
 
@@ -475,9 +417,10 @@
         }
 
         function createProbabilityChart(probabilities) {
-            const ctx = document.getElementById('probabilityChart').getContext('2d');
+            const ctx = document.getElementById('probabilityChart');
+            if (!ctx) return;
             
-            new Chart(ctx, {
+            new Chart(ctx.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: ['AI Generated/Manipulated', 'Authentic'],
@@ -506,7 +449,6 @@
         function showLoading(show) {
             document.getElementById('loading').style.display = show ? 'block' : 'none';
             document.getElementById('analyzeBtn').disabled = show;
-            document.getElementById('analyzeFeaturesBtn').disabled = show;
         }
 
         function hideResults() {
