@@ -149,6 +149,14 @@
             transform: none;
         }
 
+        .gpt-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        }
+
+        .gpt-btn:hover {
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+        }
+
         .results-section {
             margin-top: 30px;
             padding: 30px;
@@ -264,6 +272,40 @@
             margin: 20px auto;
         }
 
+        .gpt-analysis {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            border-left: 5px solid #ff6b6b;
+        }
+
+        .analysis-content {
+            white-space: pre-wrap;
+            line-height: 1.6;
+            margin-top: 10px;
+            color: #333;
+        }
+
+        .api-key-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .api-key-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 10px;
@@ -281,20 +323,36 @@
             .features-grid {
                 grid-template-columns: 1fr;
             }
+
+            .analyze-btn {
+                display: block;
+                margin: 10px auto;
+                width: 200px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 Image Forensics API</h1>
-            <p>Authenticity Detection</p>
+            <h1>🔍 AI Image Forensics</h1>
+            <p>Advanced Authenticity Detection with Multiple Analysis Methods</p>
         </div>
 
         <div class="main-content">
+            <div class="api-key-section">
+                <h4>🔑 OpenAI API Configuration</h4>
+                <p>Enter your OpenAI API key to enable ChatGPT analysis:</p>
+                <input type="password" id="apiKeyInput" class="api-key-input" placeholder="sk-...">
+                <button onclick="saveApiKey()" class="analyze-btn" style="margin: 10px;">Save Key</button>
+                <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                    Your API key is stored locally and never sent to our servers
+                </p>
+            </div>
+
             <div class="upload-section">
-                <h3>Upload Image</h3>
-                <p>Select an image to detect AI manipulation or verify authenticity</p>
+                <h3>Upload Image for Analysis</h3>
+                <p>Select an image to detect AI manipulation or verify authenticity using multiple detection methods</p>
                 
                 <div class="file-input-wrapper">
                     <input type="file" id="imageInput" class="file-input" accept="image/*">
@@ -307,7 +365,10 @@
                     <img id="imagePreview" class="image-preview" alt="Preview">
                     <div style="margin-top: 20px;">
                         <button class="analyze-btn" id="analyzeBtn" onclick="analyzeImage()">
-                            🔬 Analyze Image
+                            🔬 Forensics Analysis
+                        </button>
+                        <button class="analyze-btn gpt-btn" id="gptAnalyzeBtn" onclick="analyzeWithGPT()">
+                            🤖 Ask ChatGPT
                         </button>
                     </div>
                 </div>
@@ -328,6 +389,23 @@
     <script>
         const API_URL = 'https://image-forensics-api-226861613616.asia-south1.run.app';
         let selectedFile = null;
+        let openaiApiKey = localStorage.getItem('openai_api_key') || '';
+
+        // Load saved API key on page load
+        if (openaiApiKey) {
+            document.getElementById('apiKeyInput').value = openaiApiKey;
+        }
+
+        function saveApiKey() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            if (apiKey) {
+                openaiApiKey = apiKey;
+                localStorage.setItem('openai_api_key', apiKey);
+                alert('API key saved successfully!');
+            } else {
+                alert('Please enter a valid API key');
+            }
+        }
 
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -361,9 +439,9 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    displayResults(result);
+                    displayForensicsResults(result);
                 } else {
-                    showError(result.detail || 'Analysis failed');
+                    showError(result.detail || 'Forensics analysis failed');
                 }
             } catch (error) {
                 showError('Network error: ' + error.message);
@@ -372,16 +450,87 @@
             }
         }
 
-        function displayResults(result) {
+        async function analyzeWithGPT() {
+            if (!selectedFile) return;
+            
+            if (!openaiApiKey) {
+                showError('OpenAI API key not configured. Please add your API key above to use ChatGPT analysis.');
+                return;
+            }
+
+            showLoading(true);
+            hideResults();
+
+            try {
+                // Convert image to base64
+                const base64Image = await fileToBase64(selectedFile);
+                
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${openaiApiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4.1-mini",
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    {
+                                        type: "text",
+                                        text: "Analyze this image and determine if it's AI-generated or authentic. Please provide: 1) Your conclusion (AI-generated or authentic), 2) Confidence level (as percentage), 3) Key indicators that led to your decision, 4) Any specific artifacts or patterns you noticed. Be detailed but concise."
+                                    },
+                                    {
+                                        type: "image_url",
+                                        image_url: {
+                                            url: `data:image/jpeg;base64,${base64Image}`
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens: 1000
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayGPTResults(result);
+                } else {
+                    showError(result.error?.message || 'ChatGPT analysis failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    // Remove the data:image/jpeg;base64, prefix
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function displayForensicsResults(result) {
             const prediction = result.prediction;
             const isAI = prediction.predicted_class === 'ai_damages';
             
             let html = `
                 <div class="result-card">
-                    <h4>🎯 Prediction Result</h4>
+                    <h4>🔬 Forensics Analysis Result</h4>
                     <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
                         <span class="badge ${isAI ? 'badge-ai' : 'badge-real'}">
-                            ${isAI ? '🤖 AI Generated/Manipulated' : '✅ Authentic'}
+                            ${isAI ? '⚠️ AI Generated/Manipulated' : '✅ Authentic'}
                         </span>
                         <strong>Confidence: ${(prediction.confidence * 100).toFixed(1)}%</strong>
                     </div>
@@ -392,8 +541,19 @@
                     
                     <p style="margin-top: 10px; color: #666;">
                         <strong>File:</strong> ${result.filename} | 
+                        <strong>Method:</strong> Computer Vision Forensics |
                         <strong>Analyzed:</strong> ${new Date(result.timestamp).toLocaleString()}
                     </p>
+                </div>
+            `;
+
+            // Add probability chart container
+            html += `
+                <div class="result-card">
+                    <h5>📊 Probability Distribution</h5>
+                    <div class="chart-container">
+                        <canvas id="probabilityChart"></canvas>
+                    </div>
                 </div>
             `;
 
@@ -406,14 +566,49 @@
             }, 100);
         }
 
-        function getFeatureDescription(featureName) {
-            const descriptions = {
-                'ELA': 'Error Level Analysis - Shows compression artifacts',
-                'FFT': 'Frequency Domain Analysis - Detects periodic patterns',
-                'PRNU': 'Photo Response Non-Uniformity - Camera sensor noise',
-                'MLEP': 'Multi-scale Local Entropy Pattern - Texture analysis'
-            };
-            return descriptions[featureName] || 'Forensic analysis feature';
+        function displayGPTResults(result) {
+            const content = result.choices[0].message.content;
+            
+            // Simple parsing to extract confidence if mentioned
+            const confidenceMatch = content.match(/(\d+)%/);
+            const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 50;
+            
+            // Determine if AI generated based on content
+            const isAI = content.toLowerCase().includes('ai-generated') || 
+                        content.toLowerCase().includes('ai generated') ||
+                        content.toLowerCase().includes('artificial') ||
+                        content.toLowerCase().includes('generated') ||
+                        content.toLowerCase().includes('synthetic');
+            
+            let html = `
+                <div class="result-card">
+                    <h4>🤖 ChatGPT Vision Analysis</h4>
+                    <div style="display: flex; align-items: center; gap: 15px; margin: 15px 0;">
+                        <span class="badge ${isAI ? 'badge-ai' : 'badge-real'}">
+                            ${isAI ? '⚠️ Likely AI Generated' : '✅ Likely Authentic'}
+                        </span>
+                        <strong>Estimated Confidence: ${confidence}%</strong>
+                    </div>
+                    
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: ${confidence}%"></div>
+                    </div>
+                    
+                    <div class="gpt-analysis">
+                        <h5>📝 Detailed Analysis:</h5>
+                        <div class="analysis-content">${content}</div>
+                    </div>
+                    
+                    <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
+                        <strong>Source:</strong> OpenAI GPT-4o Mini Vision | 
+                        <strong>Method:</strong> Large Language Model |
+                        <strong>Analyzed:</strong> ${new Date().toLocaleString()}
+                    </p>
+                </div>
+            `;
+
+            document.getElementById('resultsContent').innerHTML = html;
+            document.getElementById('resultsSection').style.display = 'block';
         }
 
         function createProbabilityChart(probabilities) {
@@ -440,6 +635,13 @@
                     plugins: {
                         legend: {
                             position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                                }
+                            }
                         }
                     }
                 }
@@ -449,6 +651,7 @@
         function showLoading(show) {
             document.getElementById('loading').style.display = show ? 'block' : 'none';
             document.getElementById('analyzeBtn').disabled = show;
+            document.getElementById('gptAnalyzeBtn').disabled = show;
         }
 
         function hideResults() {
@@ -465,10 +668,10 @@
         fetch(`${API_URL}/health`)
             .then(response => response.json())
             .then(data => {
-                console.log('API Status:', data);
+                console.log('Forensics API Status:', data);
             })
             .catch(error => {
-                console.warn('API not available:', error);
+                console.warn('Forensics API not available:', error);
             });
     </script>
 </body>
