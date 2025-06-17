@@ -479,7 +479,7 @@
                                 content: [
                                     {
                                         type: "text",
-                                        text: "Analyze this image and determine if it's AI-generated or authentic. Please provide: 1) Your conclusion (AI-generated or authentic), 2) Confidence level (as percentage), 3) Key indicators that led to your decision, 4) Any specific artifacts or patterns you noticed. Be detailed but concise."
+                                        text: "Is this image AI-generated or not? Respond only in this format: CONCLUSION: [AI_GENERATED or AUTHENTIC] CONFIDENCE: [number]%"
                                     },
                                     {
                                         type: "image_url",
@@ -569,16 +569,16 @@
         function displayGPTResults(result) {
             const content = result.choices[0].message.content;
             
-            // Simple parsing to extract confidence if mentioned
-            const confidenceMatch = content.match(/(\d+)%/);
-            const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 50;
+            // Parse the structured response
+            const conclusionMatch = content.match(/CONCLUSION:\s*(AI_GENERATED|AUTHENTIC)/i);
+            const confidenceMatch = content.match(/CONFIDENCE:\s*(\d+)%/i);
+            const reasoningMatch = content.match(/REASONING:\s*([\s\S]*)/i);
             
-            // Determine if AI generated based on content
-            const isAI = content.toLowerCase().includes('ai-generated') || 
-                        content.toLowerCase().includes('ai generated') ||
-                        content.toLowerCase().includes('artificial') ||
-                        content.toLowerCase().includes('generated') ||
-                        content.toLowerCase().includes('synthetic');
+            const conclusion = conclusionMatch ? conclusionMatch[1].toUpperCase() : 'UNKNOWN';
+            const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 50;
+            const reasoning = reasoningMatch ? reasoningMatch[1].trim() : content;
+            
+            const isAI = conclusion === 'AI_GENERATED';
             
             let html = `
                 <div class="result-card">
@@ -595,8 +595,8 @@
                     </div>
                     
                     <div class="gpt-analysis">
-                        <h5>📝 Detailed Analysis:</h5>
-                        <div class="analysis-content">${content}</div>
+                        <h5>🧠 Analysis Reasoning:</h5>
+                        <div class="analysis-content">${reasoning}</div>
                     </div>
                     
                     <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
