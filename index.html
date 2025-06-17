@@ -479,7 +479,7 @@
                                 content: [
                                     {
                                         type: "text",
-                                        text: "Is this image AI-generated or not? Respond only in this format: CONCLUSION: [AI_GENERATED or AUTHENTIC] CONFIDENCE: [number]%"
+                                        text: "Analyze this image and determine if it's AI-generated or authentic. Please provide: 1) Your conclusion (AI-generated or authentic), 2) Confidence level (as percentage), 3) Key indicators that led to your decision, 4) Any specific artifacts or patterns you noticed. Be detailed but concise."
                                     },
                                     {
                                         type: "image_url",
@@ -569,16 +569,22 @@
         function displayGPTResults(result) {
             const content = result.choices[0].message.content;
             
-            // Parse the structured response
-            const conclusionMatch = content.match(/CONCLUSION:\s*(AI_GENERATED|AUTHENTIC)/i);
-            const confidenceMatch = content.match(/CONFIDENCE:\s*(\d+)%/i);
-            const reasoningMatch = content.match(/REASONING:\s*([\s\S]*)/i);
-            
-            const conclusion = conclusionMatch ? conclusionMatch[1].toUpperCase() : 'UNKNOWN';
+            // Simple parsing to extract confidence if mentioned
+            const confidenceMatch = content.match(/(\d+)%/);
             const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 50;
-            const reasoning = reasoningMatch ? reasoningMatch[1].trim() : content;
             
-            const isAI = conclusion === 'AI_GENERATED';
+            // Better parsing to determine if AI generated based on conclusion
+            const lowerContent = content.toLowerCase();
+            const isAI = (lowerContent.includes('conclusion: ai-generated') || 
+                         lowerContent.includes('conclusion: ai generated') ||
+                         lowerContent.includes('ai-generated') && !lowerContent.includes('not ai-generated') ||
+                         lowerContent.includes('artificial intelligence') ||
+                         lowerContent.includes('synthetically generated')) &&
+                        !lowerContent.includes('conclusion: authentic') &&
+                        !lowerContent.includes('appears authentic') &&
+                        !lowerContent.includes('likely authentic') &&
+                        !lowerContent.includes('genuine') &&
+                        !lowerContent.includes('real photograph');
             
             let html = `
                 <div class="result-card">
@@ -594,9 +600,13 @@
                         <div class="confidence-fill" style="width: ${confidence}%"></div>
                     </div>
                     
+                    <div class="gpt-analysis">
+                        <h5>📝 Detailed Analysis:</h5>
+                        <div class="analysis-content">${content}</div>
+                    </div>
                     
                     <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
-                        <strong>Source:</strong> OpenAI GPT-4.1 Mini | 
+                        <strong>Source:</strong> OpenAI GPT-4.1 Mini Vision | 
                         <strong>Analyzed:</strong> ${new Date().toLocaleString()}
                     </p>
                 </div>
